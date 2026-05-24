@@ -1413,15 +1413,17 @@ class ADODB_DataDict {
 				* Validates if a default value is set and if it is now
 				* or changed from the previous value.
 				*/
-				$defaultsIndex = array_search('DEFAULT', $sourceValue);
-				if ($defaultsIndex !== false) {
-					$newDefaultValue = $sourceValue[$defaultsIndex + 1];
+				if (array_key_exists('DEFAULT', $sourceValue)) {
+					$newDefaultValue = $sourceValue['DEFAULT'];
 
 					if (!$c->has_default || ($c->has_default && $c->default_value != $newDefaultValue)) {
-						// If the default value is different, we need to alter it
+						/* If the default value is different, we need to alter it
+						 * this flag will generate a DEFAULT statement on the end of the change table statement
+						 */  
 						$requiresDefaultValue = true;
 					}
 				}
+
 				if (isset($c->scale)) {
 					$currentScale = $c->scale;
 				} else {
