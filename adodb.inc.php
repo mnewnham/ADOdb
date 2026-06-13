@@ -757,14 +757,14 @@ if (!defined('_ADODB_LAYER')) {
 	var $locale;
 
 	/**
-	 * Setting true forces metacolumns to be read the db for 
-	 * each access of a table instead of using cached version. 
+	 * Setting true forces {@see metaColumns()} to read the db for
+	 * each access of a table instead of using cached version.
 	 * Currently only works on mssqlnative
-	 * 
+	 *
 	 * @var bool
 	 */
 	public bool $cachedSchemaFlush = false;
-	
+
 
 	/**
 	 * Default Constructor.
@@ -1832,7 +1832,7 @@ if (!defined('_ADODB_LAYER')) {
 			$rs->Close();
 		}
 
-		return $this->genID;
+		return (int)$this->genID;
 	}
 
 	/**
@@ -2802,7 +2802,13 @@ if (!defined('_ADODB_LAYER')) {
 		} else {
 			$sql = $this->getInsertSQL($rs, $fields_values);
 		}
-		return $sql && $this->Execute($sql);
+
+		if (!$sql) {
+			return false;
+		}
+
+		$response = $this->Execute($sql);
+		return $response;
 	}
 
 
@@ -3390,7 +3396,7 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 
 	/**
 	 * List columns names in a table as an array
-	 * 
+	 *
 	 * @param string $table	     table name to query
 	 * @param bool   $numIndexes return numeric keys
 	 * @param bool   $useattnum  discarded in base class
@@ -3398,11 +3404,11 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 	 * @return false|array of column names for current table.
 	 */
 	public function MetaColumnNames(
-		string $table, 
-		bool $numIndexes=false, 
+		string $table,
+		bool $numIndexes=false,
 		bool $useattnum=false
-	) : mixed {
-		
+	) {
+
 		$objarr = $this->MetaColumns($table);
 		if (!is_array($objarr)) {
 			return false;
@@ -3665,7 +3671,7 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 	 * @param bool   $magic_quotes This param is not used since 5.21.0.
 	 *                             It remains for backwards compatibility.
 	 *
-	 * @return string Quoted string
+	 * @return null|string Quoted string
 	 *
 	 * @noinspection PhpUnusedParameterInspection
 	 */
@@ -3888,7 +3894,7 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 	 * CHAR fields
 	 *
 	 * @param string $fieldName The field length to measure
- 	 * 
+ 	 *
 	 * @return string
 	 */
 	public function length(string $fieldName): string
@@ -5563,9 +5569,9 @@ class ADORecordSet implements IteratorAggregate {
 		}
 
 		/**
-		 * @param int [$fieldOffset]
+		 * @param int $fieldOffset The required offset
 		 *
-		 * @return \ADOFieldObject
+		 * @return false|\ADOFieldObject
 		 */
 		function FetchField($fieldOffset = -1) {
 			if ($fieldOffset < -1 || $fieldOffset >= $this->_numOfFields) {
@@ -5576,7 +5582,15 @@ class ADORecordSet implements IteratorAggregate {
 			}
 			
 			if (isset($this->_fieldobjects)) {
-				return $this->_fieldobjects[$fieldOffset];
+				if (array_key_exists($fieldOffset, $this->_fieldobjects)) {
+					return $this->_fieldobjects[$fieldOffset];
+				} else {
+					return false;
+				}
+			}
+
+			if (!array_key_exists($fieldOffset, $this->_colnames)) {
+				return false;
 			}
 			$o =  new ADOFieldObject();
 			$o->name = $this->_colnames[$fieldOffset];

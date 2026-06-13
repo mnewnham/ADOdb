@@ -112,6 +112,17 @@ class ADODB_db2 extends ADOConnection {
 
     function __construct() {}
 
+    /**
+	 * Return the id of the last row that has been inserted in a table
+     * DB2 retains this value over all subsequent non-insert executions
+     * even an execution of an insert on a table without an auto-increment
+     * column will not change it
+	 *
+	 * @param string $table  Not used in DB2
+	 * @param string $column Not userd in DB2
+	 *
+	 * @return int|false
+	 */
     protected function _insertID($table = '', $column = '')
     {
         return ADOConnection::GetOne('VALUES IDENTITY_VAL_LOCAL()');
@@ -613,7 +624,11 @@ class ADODB_db2 extends ADOConnection {
     public function serverInfo()
     {
         global $ADODB_FETCH_MODE;
-        $savem = $ADODB_FETCH_MODE;
+        
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
 
         $this->setFetchMode(ADODB_FETCH_NUM);
 
@@ -622,7 +637,8 @@ class ADODB_db2 extends ADOConnection {
                     AS INSTANCEINFO";
         $row = $this->GetRow($sql);
 
-        $this->setFetchMode($savem);
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1];
 
         if ($row) {
             $info['version'] = $row[0].':'.$row[1];
@@ -789,17 +805,24 @@ class ADODB_db2 extends ADOConnection {
 
         global $ADODB_FETCH_MODE;
 
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
+
+
         $schema = '';
         $this->_findschema($table,$schema);
 
         $table = $this->metaTables('T','',$table);
-        if ($table == false)
+        if ($table == false) {
+            $ADODB_FETCH_MODE = $saveModes[0];
+            $this->fetchMode  = $saveModes[1];
             return false;
+        }
 
         $table = $table[0];
 
-        $savem 			  = $ADODB_FETCH_MODE;
-        $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
         $this->setFetchMode(ADODB_FETCH_NUM);
 
 
@@ -809,12 +832,11 @@ class ADODB_db2 extends ADOConnection {
 
         $rows = $this->getAll($sql);
 
-        $this->setFetchMode($savem);
-        $ADODB_FETCH_MODE = $savem;
-
-        if (empty($rows))
+        if (empty($rows)) {
+            $ADODB_FETCH_MODE = $saveModes[0];
+            $this->fetchMode  = $saveModes[1];
             return false;
-
+        }
         foreach ($rows as $r)
         {
             if ($r[7] != 'P')
@@ -830,6 +852,9 @@ class ADODB_db2 extends ADOConnection {
             }
             break;
         }
+
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1];
         return $primaryKeys;
     }
 
@@ -860,22 +885,30 @@ class ADODB_db2 extends ADOConnection {
 
         $table = $metaTables[0];
 
-        $baseFetchMode = $ADODB_FETCH_MODE;
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
 
-        $ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+        if ($ADODB_FETCH_MODE == ADODB_FETCH_ASSOC) {
+            $associative = true;
+        }
 
         $this->setFetchMode(ADODB_FETCH_ASSOC);
+        
         $sql = "SELECT *
                  FROM syscat.references
                 WHERE tabname = '$table'";
 
         $results = $this->getAll($sql);
 
-        $this->setFetchMode($baseFetchMode);
-
-        if (empty($results))
+        
+        if (empty($results)) {
+            $ADODB_FETCH_MODE = $saveModes[0];
+            $this->fetchMode  = $saveModes[1];
+        
             return false;
-
+        }
         $foreignKeys = array();
 
         foreach ($results as $r)
@@ -934,9 +967,8 @@ class ADODB_db2 extends ADOConnection {
                     $fkColname      = strtolower($fkColname);
                 }
                 
-                if ($baseFetchMode == ADODB_FETCH_ASSOC || $associative) {
+                if ($associative) {
                     $foreignKeys[$referenceTable][$fkColname] = $pkColname;
-                
                 } else {
                     $foreignKeys[$referenceTable][] = sprintf(
                         '%s=%s',
@@ -948,6 +980,10 @@ class ADODB_db2 extends ADOConnection {
             }
 
         }
+
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1];
+        
         return $foreignKeys;
     }
 
@@ -965,7 +1001,11 @@ class ADODB_db2 extends ADOConnection {
 
         global $ADODB_FETCH_MODE;
 
-        $savem = $ADODB_FETCH_MODE;
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
+
         $this->SetFetchMode(ADODB_FETCH_ASSOC);
 
         /*
@@ -1045,7 +1085,9 @@ class ADODB_db2 extends ADOConnection {
 
         $metaTables = $this->getCol($sql);
 
-        $this->SetFetchMode($savem);
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1];
+  
 
         if (count($metaTables) == 0)
             return false;
@@ -1091,8 +1133,13 @@ class ADODB_db2 extends ADOConnection {
 
         $table = $table[0];
         
-        $savem 			  = $ADODB_FETCH_MODE;
-        $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
+
+        //$savem 			  = $ADODB_FETCH_MODE;
+        //$ADODB_FETCH_MODE = ADODB_FETCH_NUM;
         $this->setFetchMode(ADODB_FETCH_NUM);
 
         $sql = "SELECT *
@@ -1101,10 +1148,9 @@ class ADODB_db2 extends ADOConnection {
 
         $rows = $this->getAll($sql);
 
-        $this->setFetchMode($savem);
-        $ADODB_FETCH_MODE = $savem;
-
         if (empty($rows)) {
+            $ADODB_FETCH_MODE = $saveModes[0];
+            $this->fetchMode  = $saveModes[1];
             return false;
         }
         
@@ -1138,7 +1184,8 @@ class ADODB_db2 extends ADOConnection {
             }
 
         }
-
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1];
         return $indices;
 
     }
@@ -1167,8 +1214,13 @@ class ADODB_db2 extends ADOConnection {
         $catalogSQL     = '';
         $schemaSQL      = '';
 
-        $savem 			  = $ADODB_FETCH_MODE;
-        $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
+
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
+
+        $this->setFetchMode(ADODB_FETCH_NUM);
 
         if ($procedureNamePattern)
             $procedureSQL = "AND ROUTINENAME LIKE " . strtoupper($this->qstr($procedureNamePattern));
@@ -1201,21 +1253,26 @@ class ADODB_db2 extends ADOConnection {
 
         $result = $this->execute($SQL);
 
-        $ADODB_FETCH_MODE = $savem;
-
-        if (!$result)
+        if (!$result){
+            $ADODB_FETCH_MODE = $saveModes[0];
+            $this->fetchMode  = $saveModes[1]; 
             return false;
-
+        }
+        
         while ($r = $result->fetchRow()){
+
             $procedureName = $this->getMetaCasedValue($r[0]);
             $schemaName    = $this->getMetaCasedValue($r[2]);
-            $metaProcedures[$procedureName] = array('type'=> $r[1],
-                                                   'catalog' => '',
-                                                   'schema'  => $schemaName,
-                                                   'remarks' => $r[3]
-                                                    );
+            $metaProcedures[$procedureName] = array(
+                'type'=> $r[1],
+                'catalog' => '',
+                'schema'  => $schemaName,
+                'remarks' => $r[3]
+            );
         }
 
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1]; 
         return $metaProcedures;
 
     }
@@ -1228,7 +1285,17 @@ class ADODB_db2 extends ADOConnection {
       */
     public function metaDatabases(){
 
+        global $ADODB_FETCH_MODE;
+
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
+
         $dbName = $this->getMetaCasedValue($this->database);
+
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1];
 
         return (array)$dbName;
 
@@ -1411,6 +1478,8 @@ See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/db2/htm/db2
                 $fld->scale            = $rs->fields[8];
                 $fld->primary_key      = 0;
 
+                $fld->default_value = $rs->fields[12];
+
                 $fld->actualType = $rs->fields[4];
                 //$columnName = $this->getMetaCasedValue($fld->name);
                 $columnName = strtoupper($fld->name);
@@ -1530,7 +1599,7 @@ See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/db2/htm/db2
       */
     function prepareSp($procedureName,$parameters=false) {
 
-        global $ADODB_FETCH_MODE;
+        //global $ADODB_FETCH_MODE;
 
         $this->storedProcedureParameters = array('name'=>'',
                                                  'resource'=>false,
@@ -1540,74 +1609,60 @@ See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/db2/htm/db2
                                                  'parameters'=>array(),
                                                  'keyvalue' => array());
 
-        //$procedureName = strtoupper($procedureName);
-        //$procedureName = $this->getTableCasedValue($procedureName);
+        $qid = db2_procedures($this->_connectionID, '' , '%' , $procedureName );
 
-        $savem = $ADODB_FETCH_MODE;
-        $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
-
-        $qid = db2_procedures($this->_connectionID, NULL , '%' , $procedureName );
-
-        $ADODB_FETCH_MODE = $savem;
-
-        if (!$qid)
+         if (!$qid)
         {
             if ($this->debug)
                 ADOConnection::outp(sprintf('No Procedure of name %s available',$procedureName));
             return false;
         }
 
-
-
         $this->storedProcedureParameters['name'] = $procedureName;
         /*
          * Now we know we have a valid procedure name, lets see if it requires
          * parameters
          */
-        $savem = $ADODB_FETCH_MODE;
-        $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
 
-        $qid = db2_procedure_columns($this->_connectionID, NULL , '%' , $procedureName , NULL );
+        $procedureName = strtoupper($procedureName);
 
-        $ADODB_FETCH_MODE = $savem;
-
+        $qid = db2_procedure_columns($this->_connectionID, '', '%' , $procedureName , '' );    
         if (!$qid)
         {
             if ($this->debug)
                 ADOConnection::outp(sprintf('No columns of name %s available',$procedureName));
             return false;
         }
-        $rs = new ADORecordSet_db2($qid);
-        if (!$rs)
-            return false;
-
+        
         $preparedStatement = 'CALL %s(%s)';
         $parameterMarkers = array();
-        while (!$rs->EOF)
-        {
-            $parameterName = $rs->fields[3];
+        
+        while ($rs = db2_fetch_assoc($qid)) {
+
+            $parameterName = $rs['column_name'];
             if ($parameterName == '')
             {
                 $rs->moveNext();
                 continue;
             }
-            $parameterType = $rs->fields[4];
-            $ordinalPosition = $rs->fields[17];
+            $parameterType   = $rs['column_type'];
+            $ordinalPosition = $rs['ordinal_position'];
             switch($parameterType)
             {
             case DB2_PARAM_IN:
             case DB2_PARAM_INOUT:
                 $this->storedProcedureParameters['in'][$parameterName] = '';
+            if ($parameterType == DB2_PARAM_IN) {
                 break;
+            }
             case DB2_PARAM_INOUT:
             case DB2_PARAM_OUT:
                 $this->storedProcedureParameters['out'][$parameterName] = '';
                 break;
             }
             $this->storedProcedureParameters['index'][$parameterName] = $ordinalPosition;
-            $this->storedProcedureParameters['parameters'][$ordinalPosition] = $rs->fields;
-            $rs->moveNext();
-
+            $this->storedProcedureParameters['parameters'][$ordinalPosition] = array_values($rs);
+           
         }
         $parameterCount = count($this->storedProcedureParameters['index']);
         $parameterMarkers = array_fill(0,$parameterCount,'?');
@@ -1826,6 +1881,9 @@ See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/db2/htm/db2
         {
             if ($this->debug)
                 ADOConnection::outp("Adding parameter to stored procedure");
+
+            $name = strtoupper($name);
+
             if ($stmt[1] == $this->storedProcedureParameters['resource'])
                 return $this->storedProcedureParameter($stmt[1],
                                                         $var,
