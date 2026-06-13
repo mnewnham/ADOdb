@@ -4160,7 +4160,6 @@ class ADORecordSet implements IteratorAggregate {
 
 	var $BOF = false;
 	var $EOF = false;		/// Indicates that the current record position is after the last record in a Recordset object.
-	var $BOF = false;
 	var $emptyTimeStamp = '&nbsp;'; /// what to display when $time==0
 	var $emptyDate = '&nbsp;'; /// what to display when $time==0
 	var $debug = false;
