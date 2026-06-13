@@ -82,22 +82,18 @@ class ADODB_mssqlnative extends ADOConnection {
 	var $metaDatabasesSQL = "select name from sys.sysdatabases where name <> 'master'";
 	var $metaTablesSQL="select name,case when type='U' then 'T' else 'V' end from sysobjects where (type='U' or type='V') and (name not in ('sysallocations','syscolumns','syscomments','sysdepends','sysfilegroups','sysfiles','sysfiles1','sysforeignkeys','sysfulltextcatalogs','sysindexes','sysindexkeys','sysmembers','sysobjects','syspermissions','sysprotects','sysreferences','systypes','sysusers','sysalternates','sysconstraints','syssegments','REFERENTIAL_CONSTRAINTS','CHECK_CONSTRAINTS','CONSTRAINT_TABLE_USAGE','CONSTRAINT_COLUMN_USAGE','VIEWS','VIEW_TABLE_USAGE','VIEW_COLUMN_USAGE','SCHEMATA','TABLES','TABLE_CONSTRAINTS','TABLE_PRIVILEGES','COLUMNS','COLUMN_DOMAIN_USAGE','COLUMN_PRIVILEGES','DOMAINS','DOMAIN_CONSTRAINTS','KEY_COLUMN_USAGE','dtproperties'))";
 	var $metaColumnsSQL =
-		"select c.name,
-		t.name as type,
-		c.length,
-		c.xprec as precision,
-		c.xscale as scale,
-		c.isnullable as nullable,
-		c.cdefault as default_value,
-		c.xtype,
-		t.length as type_length,
-		sc.is_identity
-		from syscolumns c
-		join systypes t on t.xusertype=c.xusertype
-		join sysobjects o on o.id=c.id
-		join sys.tables st on st.name=o.name
-		join sys.columns sc on sc.object_id = st.object_id and sc.name=c.name
-		where o.name='%s'";
+"SELECT c.name,	t.name AS type,	c.length, c.xprec AS precision, c.xscale AS scale, c.isnullable AS nullable, constraints.definition AS default_value,
+		c.xtype,t.length AS type_length, sc.is_identity
+		FROM syscolumns c
+		JOIN systypes t ON t.xusertype=c.xusertype
+		JOIN sysobjects o ON o.id=c.id
+		JOIN sys.tables st ON st.name=o.name
+		JOIN sys.columns sc ON sc.object_id = st.object_id AND sc.name=c.name
+		LEFT JOIN sys.default_constraints constraints
+			   ON object_name(constraints.parent_object_id) = o.name
+			  AND col_name(constraints.parent_object_id, constraints.parent_column_id) = c.name
+			  AND constraints.type='D'
+		WHERE o.name='%s'";
 	var $hasTop = 'top';		// support mssql SELECT TOP 10 * FROM TABLE
 	var $hasGenID = true;
 	var $sysDate = 'convert(datetime,convert(char,GetDate(),102),102)';
@@ -802,11 +798,21 @@ class ADODB_mssqlnative extends ADOConnection {
 
 		$indexes = array();
 		while ($row = $rs->FetchRow()) {
+			
 			if (!$primary && $row[5]) {
 				continue;
 			}
 
-			$indexes[$row[0]]['unique'] = $row[6];
+			if (!array_key_exists($row[0], $indexes)) {
+				$indexes[$row[0]] = [
+					'unique' => 0,
+					'columns' => [],
+					'primary' => 0
+				];				
+			}
+
+			$indexes[$row[0]]['unique']    = $row[6];
+			$indexes[$row[0]]['primary']   = $row[5];
 			$indexes[$row[0]]['columns'][] = $row[1];
 		}
 
@@ -1045,24 +1051,47 @@ class ADODB_mssqlnative extends ADOConnection {
 
 			$fld = new ADOFieldObject();
 			if (array_key_exists(0,$rs->fields)) {
+
+				$hasDefault = 0;
+				$defaultValue = '';
+
+				if ($rs->fields[6]) {
+					$from = ['((','))',"('", "')"];
+					$to   = ['', '', '', ''];
+					$hasDefault = 1;			
+					$defaultValue = str_replace($from, $to, $rs->fields[6] ?? '');
+				}
+
 				$fld->name          = $rs->fields[0];
 				$fld->type          = $rs->fields[1];
 				$fld->max_length    = $rs->fields[2];
 				$fld->precision     = $rs->fields[3];
 				$fld->scale         = $rs->fields[4];
 				$fld->not_null      =!$rs->fields[5];
-				$fld->has_default   = $rs->fields[6];
+				$fld->has_default   = $hasDefault;
+				$fld->default_value = $defaultValue;
 				$fld->xtype         = $rs->fields[7];
 				$fld->type_length   = $rs->fields[8];
 				$fld->auto_increment= $rs->fields[9];
 			} else {
+
+				$hasDefault = 0;
+				$defaultValue = '';
+
+				if ($rs->fields['default_value']) {
+					$from = ['((','))',"('", "')"];
+					$to   = ['', '', '', ''];
+					$hasDefault = 1;			
+					$defaultValue = str_replace($from, $to, $rs->fields['default_value'] ?? '');
+				}
 				$fld->name          = $rs->fields['name'];
 				$fld->type          = $rs->fields['type'];
 				$fld->max_length    = $rs->fields['length'];
 				$fld->precision     = $rs->fields['precision'];
 				$fld->scale         = $rs->fields['scale'];
 				$fld->not_null      =!$rs->fields['nullable'];
-				$fld->has_default   = $rs->fields['default_value'];
+				$fld->has_default   = $hasDefault;
+				$fld->default_value = $defaultValue;
 				$fld->xtype         = $rs->fields['xtype'];
 				$fld->type_length   = $rs->fields['type_length'];
 				$fld->auto_increment= $rs->fields['is_identity'];
