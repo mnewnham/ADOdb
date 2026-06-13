@@ -108,7 +108,13 @@ class ADODB_sqlite3 extends ADOConnection
      * @var string
      */
     public $_dropSeqSQL = 'DROP TABLE %s';
-
+	
+    /**
+     * Does the driver support bound queries
+     *
+     * @var boolean
+     */
+    public $_bindInputArray = true;
     /**
      * The SQLite3 connection resource
      *
@@ -380,6 +386,12 @@ class ADODB_sqlite3 extends ADOConnection
         }
 
         global $ADODB_FETCH_MODE;
+
+        $tableExists = $this->metaTables('T', false, $table);
+        if (!$tableExists) {
+            return false;
+        }
+
         $save = $ADODB_FETCH_MODE;
         $ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
         if ($this->fetchMode !== false) {
@@ -391,14 +403,17 @@ class ADODB_sqlite3 extends ADOConnection
         if (isset($savem)) {
             $this->SetFetchMode($savem);
         }
-
+       
         if (!$rs) {
             $ADODB_FETCH_MODE = $save;
             return false;
         }
 
+        
+
         $arr = array();
         while ($r = $rs->FetchRow()) {
+            
             // Metacolumns returns column names in lowercase
             $r = array_change_key_case($r, CASE_LOWER);
 
@@ -442,9 +457,8 @@ class ADODB_sqlite3 extends ADOConnection
     {
         global $ADODB_FETCH_MODE;
 
-        $metaTables = $this->metaTables('T', $owner, $table);
-
-        if (!$metaTables) {
+        $tableExists = $this->metaTables('T', false, $table);
+        if (!$tableExists) {
             return false;
         }
 
@@ -516,17 +530,44 @@ class ADODB_sqlite3 extends ADOConnection
             }
         }
 
-        return $foreignKeys;
+        return $fkeyList;
     }
 
     /**
-	 * return the databases that the driver can connect to.
-	 *
-	 * @return array|false an array of database names.
-	 */
-	public function MetaDatabases() : mixed {
-		return [ $this->user ];
-	}
+     * Returns the metadata for a table
+     *
+     * @param string $table     The table name
+     * @param bool   $normalize If true, will return the field names in uppercase
+     *
+     * @return array|false An array of ADOFieldObject objects or false on failure
+     */
+    public function metaDatabases()
+    {
+        global $ADODB_FETCH_MODE;
+
+        $save = $ADODB_FETCH_MODE;
+        $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
+        if ($this->fetchMode !== false) {
+            $savem = $this->SetFetchMode(false);
+        }
+
+        $res = $this->getAll('PRAGMA database_list');
+
+        if (isset($savem)) {
+            $this->SetFetchMode($savem);
+        }
+
+        $ADODB_FETCH_MODE = $save;
+        if (!$res) {
+            return false;
+        }
+
+        if ($this->database == ':memory:') {
+            $res[0][2] = $this->database;
+        }
+
+        return $res[0];
+    }
 
     /**
      * Initialize the driver
@@ -641,7 +682,24 @@ class ADODB_sqlite3 extends ADOConnection
         if (empty($argHostname) && $argDatabasename) {
             $argHostname = $argDatabasename;
         }
+
+        if (!$argHostname) {
+            if ($this->debug) {
+                ADOConnection::outp('No host or connect passed to connect()');
+            }
+            return false;
+        }
         $this->_connectionID = new SQLite3($argHostname);
+
+        /*
+        * Use the physical file name or ':memory:' as the
+        * database name
+        */
+        $dbArray = preg_split('/[\/\\\\]+/', $argHostname);
+        $dbArray = array_filter($dbArray);
+
+        $this->database = array_pop($dbArray);
+
 
         // Register date conversion function for SQLDate() method
         // Replaces the legacy adodb_date() functions removed in 5.23.0
@@ -682,12 +740,41 @@ class ADODB_sqlite3 extends ADOConnection
      * Executes a query on the SQLite database
      *
      * @param string $sql      The SQL query to execute
-     * @param mixed  $inputarr An array of input parameters (not used)
+     * @param mixed  $inputarr An optional array of input parameters
      *
      * @return SQLite3Result|bool The result set or true on success, false on failure
      */
     public function _query($sql, $inputarr = false)
     {
+        /*
+        * Build parameterized query if input array is provided
+        */
+        if (is_array($inputarr) && count($inputarr) > 0) {
+            $stmt = $this->_connectionID->prepare($sql);
+            if ($stmt === false) {
+                $this->lastError();
+                return false;
+            }
+
+            $paramIndex = 1;
+            foreach ($inputarr as $param) {
+                $stmt->bindValue($paramIndex, $param);
+                $paramIndex++;
+            }
+
+            $rez = $stmt->execute();
+            if ($rez === false) {
+                $this->lastError();
+                return false;
+            } elseif ($rez->numColumns() == 0) {
+                // If no data was returned, we don't need to create a real recordset
+                $rez->finalize();
+                $rez = true;
+            }
+
+            return $rez;
+        }
+
         $rez = $this->_connectionID->query($sql);
         if ($rez === false) {
             $this->lastError();
@@ -696,7 +783,6 @@ class ADODB_sqlite3 extends ADOConnection
             $rez->finalize();
             $rez = true;
         }
-
         return $rez;
     }
 
@@ -835,6 +921,20 @@ class ADODB_sqlite3 extends ADOConnection
     }
 
     /**
+     * Returns a parameter for a bound query. SQLite uses an OCI
+     * style placeholder
+     *
+     * @param string $name The name for the placeholder
+     * @param string $type unused for driver
+     *
+     * @return void
+     */
+    function param($name, $type = 'C')
+    {
+        return ':' . $name;
+    }
+
+    /**
      * Returns the indexes for a table
      *
      * This function retrieves the indexes for a given table from the SQLite master table.
@@ -856,11 +956,13 @@ class ADODB_sqlite3 extends ADOConnection
         }
         // save old fetch mode
         global $ADODB_FETCH_MODE;
-        $saveModes = [
-            $ADODB_FETCH_MODE,
-            $this->fetchMode
-        ];
 
+        $tableExists = $this->metaTables('T', false, $table);
+        if (!$tableExists) {
+            return false;
+        }
+
+        $save = $ADODB_FETCH_MODE;
         $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
         if ($this->fetchMode !== false) {
             $savem = $this->SetFetchMode(false);
@@ -1158,7 +1260,8 @@ class ADORecordset_sqlite3 extends ADORecordSet
 
         $this->_inited = true;
         $this->fields = array();
-        if ($queryID) {
+        if (is_resource($queryID) || is_object($queryID)) {
+            $this->_queryID = $queryID;
             $this->_currentRow = 0;
             $this->EOF = !$this->_fetch();
             @$this->_initrs();
@@ -1183,6 +1286,13 @@ class ADORecordset_sqlite3 extends ADORecordSet
      */
     public function fetchField($fieldOffset = -1)
     {
+        if ($fieldOffset < -1 || $fieldOffset >= $this->_numOfFields) {
+            if ($this->connection->debug) {
+                ADOConnection::outp("FetchField: field offset out of range: $fieldOffset");
+            }
+            return false;
+        }
+
         $fld = new ADOFieldObject();
         $fld->name = $this->_queryID->columnName($fieldOffset);
         $fld->type = 'VARCHAR';

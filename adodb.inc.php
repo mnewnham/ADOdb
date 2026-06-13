@@ -3670,6 +3670,10 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 	 * @noinspection PhpUnusedParameterInspection
 	 */
 	function addQ($s, $magic_quotes=false) {
+		if (!$s) {
+			return '';
+		}
+		
 		if ($this->replaceQuote[0] == '\\') {
 			$s = str_replace(
 				array('\\', "\0"),
@@ -3996,6 +4000,7 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 		var $dataProvider = 'empty';
 		var $databaseType = false;
 		var $EOF = true;
+		var $BOF = true;
 		var $_numOfRows = 0;
 		/** @var bool|array  */
 		var $fields = false;
@@ -4155,7 +4160,7 @@ class ADORecordSet implements IteratorAggregate {
 
 	var $BOF = false;
 	var $EOF = false;		/// Indicates that the current record position is after the last record in a Recordset object.
-
+	var $BOF = false;
 	var $emptyTimeStamp = '&nbsp;'; /// what to display when $time==0
 	var $emptyDate = '&nbsp;'; /// what to display when $time==0
 	var $debug = false;
@@ -5564,6 +5569,13 @@ class ADORecordSet implements IteratorAggregate {
 		 * @return \ADOFieldObject
 		 */
 		function FetchField($fieldOffset = -1) {
+			if ($fieldOffset < -1 || $fieldOffset >= $this->_numOfFields) {
+				if ($this->connection->debug) {
+					ADOConnection::outp("FetchField: field offset out of range: $fieldOffset");
+				}
+				return false;
+			}
+			
 			if (isset($this->_fieldobjects)) {
 				return $this->_fieldobjects[$fieldOffset];
 			}
