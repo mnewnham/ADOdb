@@ -372,6 +372,13 @@ class ADODB_sqlite3 extends ADOConnection
      */
     public function metaColumns($table, $normalize = true)
     {
+
+        $myTable = $this->metaTables('T',false,$table);
+        
+        if (!$myTable || $myTable[0] != $table) {
+            return false;
+        }
+
         global $ADODB_FETCH_MODE;
         $save = $ADODB_FETCH_MODE;
         $ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
@@ -511,6 +518,15 @@ class ADODB_sqlite3 extends ADOConnection
 
         return $foreignKeys;
     }
+
+    /**
+	 * return the databases that the driver can connect to.
+	 *
+	 * @return array|false an array of database names.
+	 */
+	public function MetaDatabases() : mixed {
+		return [ $this->user ];
+	}
 
     /**
      * Initialize the driver
@@ -832,9 +848,19 @@ class ADODB_sqlite3 extends ADOConnection
      */
     public function metaIndexes($table, $primary = false, $owner = false)
     {
+        
+        $myTable = $this->metaTables('T',false,$table);
+        
+        if (!$myTable || $myTable[0] != $table) {
+            return false;
+        }
         // save old fetch mode
         global $ADODB_FETCH_MODE;
-        $save = $ADODB_FETCH_MODE;
+        $saveModes = [
+            $ADODB_FETCH_MODE,
+            $this->fetchMode
+        ];
+
         $ADODB_FETCH_MODE = ADODB_FETCH_NUM;
         if ($this->fetchMode !== false) {
             $savem = $this->SetFetchMode(false);
@@ -851,10 +877,14 @@ class ADODB_sqlite3 extends ADOConnection
         $rs = $this->execute($sql, [$table]);
 
         if (!is_object($rs)) {
+            $ADODB_FETCH_MODE = $saveModes[0];
+            $this->fetchMode  = $saveModes[1];
+            /*
             if (isset($savem)) {
                 $this->SetFetchMode($savem);
             }
             $ADODB_FETCH_MODE = $save;
+            */
             return false;
         }
 
@@ -864,6 +894,7 @@ class ADODB_sqlite3 extends ADOConnection
             if (!isset($indexes[$row[0]])) {
                 $indexes[$row[0]] = array(
                     'unique' => preg_match("/unique/i", $row[1]),
+                    'primary' => 0
                 );
             }
             // Index elements appear in the SQL statement in cols[1] between parentheses
@@ -875,7 +906,10 @@ class ADODB_sqlite3 extends ADOConnection
         // If we want the primary key, we must extract it from the pragma
         if ($primary) {
             $pragmaData = $this->getAll('PRAGMA table_info(?);', [$table]);
-            $pkIndexData = array('unique' => 1,'columns' => array());
+            $pkIndexData = array(
+                'unique' => 1,
+                'primary' => 1,
+                'columns' => array());
 
             $pkCallBack = function ($value, $key) use (&$pkIndexData) {
                 // As we iterate the elements check for pk index
@@ -891,11 +925,15 @@ class ADODB_sqlite3 extends ADOConnection
             }
         }
 
+        $ADODB_FETCH_MODE = $saveModes[0];
+        $this->fetchMode  = $saveModes[1];
+
+        /*
         if (isset($savem)) {
             $this->SetFetchMode($savem);
             $ADODB_FETCH_MODE = $save;
         }
-
+        */
         return $indexes;
     }
 
