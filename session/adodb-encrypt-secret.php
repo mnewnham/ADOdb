@@ -19,24 +19,37 @@
  * @copyright 2014 Damien Regad, Mark Newnham and the ADOdb community
  */
 
-@define('HORDE_BASE', dirname(dirname(dirname(__FILE__))) . '/horde');
-
-if (!is_dir(HORDE_BASE)) {
-	trigger_error(sprintf('Directory not found: \'%s\'', HORDE_BASE), E_USER_ERROR);
-	return 0;
+if (!defined('HORDE_BASE')) {
+    @define('HORDE_BASE', dirname(dirname(dirname(__FILE__))) . '/Horde');
 }
 
-include_once HORDE_BASE . '/lib/Horde.php';
-include_once HORDE_BASE . '/lib/Secret.php';
+if (!is_dir(HORDE_BASE)) {
+	exit(sprintf('Directory not found: \'%s\'', HORDE_BASE));
+}
+
+include_once HORDE_BASE . '/Secret.php';
 
 class ADODB_Encrypt_Secret {
-	/**
+
+    /**
+	 * Writes session data
+	 *
+	 * @param string $data
+	 * @param string $key
+	 * 
+	 * @return void
 	 */
 	function write($data, $key) {
 		return Secret::write($key, $data);
 	}
 
 	/**
+	 * Reads session data
+	 *
+	 * @param string $data
+	 * @param string $key
+	 * 
+	 * @return void
 	 */
 	function read($data, $key) {
 		return Secret::read($key, $data);
