@@ -19,9 +19,9 @@
  * @copyright 2014 Damien Regad, Mark Newnham and the ADOdb community
  */
 
+
 if (!function_exists('gzcompress')) {
-	trigger_error('gzip functions are not available', E_USER_ERROR);
-	return 0;
+	exit('gzip functions are not available');
 }
 
 /*
