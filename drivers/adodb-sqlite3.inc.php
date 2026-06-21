@@ -666,6 +666,37 @@ class ADODB_sqlite3 extends ADOConnection
     }
 
     /**
+	 * Creates a portable date offset field, for use in SQL statements.
+	 *
+	 * @link https://adodb.org/dokuwiki/doku.php?id=v5:reference:connection:offsetdate
+	 *
+	 * @param float $dayFraction A day in floating point
+	 * @param string|bool $date (Optional) The date to offset. If false, uses CURDATE()
+	 *
+	 * @return string
+	 */
+	function OffsetDate($dayFraction, $date = false)
+	{
+		if (!$date || $date == $this->sysTimeStamp) {
+            $startDate = 'now';
+        } else {
+            $startDate = $date;
+        }
+
+		$fraction = $dayFraction * 24 * 3600;
+
+        if (abs($fraction) == $fraction) {
+            $fraction = '+' . $fraction;
+        }
+
+		return sprintf(
+            "DATETIME('%s','%s SECONDS', 'localtime')",
+            $startDate,
+            $fraction
+        );
+	}
+
+    /**
      * Connects to the SQLite database
      *
      * @param string $argHostname     The hostname or database file path
