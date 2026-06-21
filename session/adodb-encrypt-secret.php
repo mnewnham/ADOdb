@@ -19,6 +19,9 @@
  * @copyright 2014 Damien Regad, Mark Newnham and the ADOdb community
  */
 
+use Horde\Secret\SecretManager;
+use Horde\Crypt\BlowFish;
+
 if (!defined('HORDE_BASE')) {
     @define('HORDE_BASE', dirname(dirname(dirname(__FILE__))) . '/Horde');
 }
@@ -27,11 +30,20 @@ if (!is_dir(HORDE_BASE)) {
 	exit(sprintf('Directory not found: \'%s\'', HORDE_BASE));
 }
 
-include_once HORDE_BASE . '/Secret.php';
+//include_once HORDE_BASE . '/Secret.php';
 
 class ADODB_Encrypt_Secret {
 
-    /**
+	public mixed $hordeObject = false;
+
+	public function initializeHorde($key)
+	{
+
+		$this->hordeObject = SecretManager::create($key);
+		
+	}
+    
+	/**
 	 * Writes session data
 	 *
 	 * @param string $data
@@ -40,7 +52,12 @@ class ADODB_Encrypt_Secret {
 	 * @return void
 	 */
 	function write($data, $key) {
-		return Secret::write($key, $data);
+
+		if (!$this->hordeObject) {
+			$this->initializeHorde($key);
+		}
+		//return Horde_Secret::write($key, $data);
+		return $this->hordeObject->write($key, $data);
 	}
 
 	/**
@@ -52,7 +69,12 @@ class ADODB_Encrypt_Secret {
 	 * @return void
 	 */
 	function read($data, $key) {
-		return Secret::read($key, $data);
+		
+		if (!$this->hordeObject) {
+			$this->initializeHorde($key);
+		}
+		
+		return $this->hordeObject->read($key, $data);
 	}
 
 }
