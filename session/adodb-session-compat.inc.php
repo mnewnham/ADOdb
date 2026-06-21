@@ -85,6 +85,7 @@ class ADODB_Session {
 	 * Get/Set Database name.
 	 *
 	 * @param null $database
+	 * 
 	 * @return string
 	 */
 	static function database($database = null)
@@ -100,23 +101,25 @@ class ADODB_Session {
 	/**
 	 * Get/Set Connection's persistence mode.
 	 *
-	 * @param $persist
+	 * @param string $persist The connection signifier
+	 * 
 	 * @return string|true
 	 */
 	static function persist($persist = null)
 	{
 		if (!isset($GLOBALS['ADODB_SESSION_OBJECT'])) {
-            return false;
+            return null;
         }
 
         return $GLOBALS['ADODB_SESSION_OBJECT']->persist($persist);
-        
+
 	}
 
 	/**
 	 * Get/Set Connection's lifetime.
 	 *
-	 * @param int $lifetime
+	 * @param int $lifetime In seconds
+	 * 
 	 * @return int
 	 */
 	static function lifetime($lifetime = null)
@@ -152,13 +155,13 @@ class ADODB_Session {
 	 *
 	 * @return array|false
 	 */
-	static function expireNotify($expire_notify = null)
+	static function expireNotify(?array $expire_notify = null) : mixed
 	{
 		if (!isset($GLOBALS['ADODB_SESSION_OBJECT'])) {
             return false;
         }
 
-        return $GLOBALS['ADODB_SESSION_OBJECT']->expireNofify($expite_notify);
+        return $GLOBALS['ADODB_SESSION_OBJECT']->expireNofify($expire_notify);
         
 	}
 
@@ -193,7 +196,7 @@ class ADODB_Session {
             return false;
         }
 
-        return $GLOBALS['ADODB_SESSION_OBJECT']->obtimize($optimize);
+        return $GLOBALS['ADODB_SESSION_OBJECT']->optimize($optimize);
         
 	}
 
@@ -402,7 +405,8 @@ class ADODB_Session {
 	}
 
 	/**
-	 * Create the connection to the database.
+	 * Create the connection to the database. This does not match
+	 * the signature for a session::open method
 	 *
 	 * If $conn already exists, reuse that connection.
 	 *
@@ -514,6 +518,23 @@ class ADODB_Session {
         
         return $GLOBALS['ADODB_SESSION_OBJECT']->gc($maxlifetime);
 	}
+
+	/**
+	 * Accepts connection parameters
+	 *
+	 * @param array|null $parameters The passed parameters
+	 * 
+	 * @return mixed
+	 */
+	static function parameters(?array $parameters = null) : ?array {
+		
+		if (!isset($GLOBALS['ADODB_SESSION_OBJECT'])) {
+            return null;
+        }
+        
+        return $GLOBALS['ADODB_SESSION_OBJECT']->parameters($parameters);
+	}
+
 }
 
 
