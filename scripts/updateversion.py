@@ -386,7 +386,7 @@ def update_changelog(version):
                     link_head = r"master\n"
             link_target = r"[{0}]: {1}v{2}...{3}".format(
                 version_release if not version_is_prerelease(version) else version,
-                "https://github.com/adodb/adodb/compare/".replace('/', r'\/'),
+                "https://github.com/mnewnham/adodb/compare/".replace('/', r'\/'),
                 version_previous,
                 link_head
                 )
