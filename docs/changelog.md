@@ -14,7 +14,9 @@ Older changelogs:
 
 --------------------------------------------------------------------------------
 
-## [5.23.0] - Unreleased
+## [5.23.1] - 2026-07-11
+
+## [5.23.0] - 2026-07-11
 
 ### Added
 
@@ -1570,7 +1572,8 @@ Released together with [v4.95](changelog_v4.x.md#495---17-may-2007)
 - Adodb5 version,more error checking code now will use exceptions if available.
 
 
-[5.23.0]: https://github.com/adodb/adodb/compare/v5.22.11...master
+[5.23.1]: https://github.com/mnewnham/adodb/compare/v5.23.0...v5.23.1
+[5.23.0]: https://github.com/adodb/adodb/compare/v5.22.11...v5.23.0
 
 [5.22.11]: https://github.com/adodb/adodb/compare/v5.22.10...v5.22.11
 [5.22.10]: https://github.com/adodb/adodb/compare/v5.22.9...v5.22.10
