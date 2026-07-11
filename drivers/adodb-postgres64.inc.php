@@ -482,16 +482,28 @@ class ADODB_postgres64 extends ADOConnection{
 
 	function OffsetDate($dayFraction,$date=false)
 	{
-		if (!$date) $date = $this->sysDate;
-		else if (strncmp($date,"'",1) == 0) {
+		if (!$date) {
+			$date = $this->sysDate;
+		} else if (strncmp($date,"'",1) == 0) {
 			$len = strlen($date);
-			if (10 <= $len && $len <= 12) $date = 'date '.$date;
-			else $date = 'timestamp '.$date;
+			if (10 <= $len && $len <= 12) $date = 'DATE '.$date;
+			else $date = 'TIMESTAMP '.$date;
 		}
 
+		if (abs($dayFraction) == $dayFraction) {
+			$operator = '+';
+		} else {
+			$operator = '-';
+			$dayFraction = abs($dayFraction);
+		}
 
-		return "($date+interval'".($dayFraction * 1440)." minutes')";
-		#return "($date+interval'$dayFraction days')";
+		return sprintf(
+			"(%s%sINTERVAL'%s MINUTES')",
+			$date,
+			$operator,
+			$dayFraction * 1440
+		);
+	
 	}
 
 	/**
