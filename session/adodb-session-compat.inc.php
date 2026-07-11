@@ -161,7 +161,7 @@ class ADODB_Session {
             return false;
         }
 
-        return $GLOBALS['ADODB_SESSION_OBJECT']->expireNofify($expire_notify);
+        return $GLOBALS['ADODB_SESSION_OBJECT']->expireNotify($expire_notify);
         
 	}
 
@@ -277,19 +277,6 @@ class ADODB_Session {
 	 */
 	static function _conn($conn=null) {
 		return isset($GLOBALS['ADODB_SESS_CONN']) ? $GLOBALS['ADODB_SESS_CONN'] : false;
-	}
-
-	/**
-	 * @param $crc
-	 * @return false|mixed
-	 */
-	static function _crc($crc = null) {
-		if (!isset($GLOBALS['ADODB_SESSION_OBJECT'])) {
-            return false;
-        }
-
-        return $GLOBALS['ADODB_SESSION_OBJECT']->crc($crc);
-        
 	}
 
 	/**
