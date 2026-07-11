@@ -21,8 +21,7 @@
  */
 
 if (!function_exists('bzcompress')) {
-	trigger_error('bzip2 functions are not available', E_USER_ERROR);
-	return 0;
+	exit('bzip2 functions are not available');
 }
 
 /**

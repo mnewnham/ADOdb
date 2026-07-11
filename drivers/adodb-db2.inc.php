@@ -616,6 +616,34 @@ class ADODB_db2 extends ADOConnection {
         return $s;
     }
 
+    function OffsetDate($dayFraction,$date=false)
+	{
+		if (!$date) {
+            if ($dayFraction) {
+			    $date = $this->sysDate;
+            }
+		} else if (strncmp($date,"'",1) == 0) {
+			$len = strlen($date);
+			if (10 <= $len && $len <= 12) $date = 'DATE '.$date;
+			else $date = 'TIMESTAMP '.$date;
+		}
+
+		if (abs($dayFraction) == $dayFraction) {
+			$operator = '+';
+		} else {
+			$operator = '-';
+			$dayFraction = abs($dayFraction);
+		}
+
+		return sprintf(
+			"(%s%sINTERVAL'%s MINUTES')",
+			$date,
+			$operator,
+			$dayFraction * 1440
+		);
+	
+	}
+
     /**
      * Return information about the database server
      *

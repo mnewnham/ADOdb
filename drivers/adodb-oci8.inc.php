@@ -698,6 +698,32 @@ END;
 	}
 
 	/**
+	 * Creates a portable date offset field, for use in SQL statements.
+	 *
+	 * @link https://adodb.org/dokuwiki/doku.php?id=v5:reference:connection:offsetdate
+	 *
+	 * @param float       $dayFraction A day in floating point
+	 * @param string|bool $date        (Optional) The date to offset. If false, uses SYSDATE
+	 *
+	 * @return string
+	 */
+	function OffsetDate($dayFraction, $date = false)
+	{
+		if (!$date) {
+			$date = $this->sysDate;
+		}
+		
+		$fraction = $dayFraction * 24 * 3600;
+		
+		return sprintf(
+			"%s + INTERVAL '%s' SECOND",
+			$date,
+			$fraction
+		);
+	}
+
+
+	/**
 	 * Format date column in sql string given an input format that understands Y M D
 	 */
 	function SQLDate($fmt, $col=false)
