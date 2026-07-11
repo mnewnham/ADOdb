@@ -1,21 +1,18 @@
 ADOdb Library for PHP
 ======================
-
-[![Join chat on Gitter](https://img.shields.io/gitter/room/adodb/adodb?logo=gitter)](https://gitter.im/adodb/adodb?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![SourceForge Downloads Shield](https://img.shields.io/sourceforge/dm/adodb?label=SourceForge&logo=sourceforge&color=informational)](https://sourceforge.net/projects/adodb/files/latest/download)
-[![Packagist Downloads Shield](https://img.shields.io/packagist/dm/ADOdb/ADOdb-php?label=Packagist&logo=packagist&logoColor=white&color=informational)](https://packagist.org/packages/adodb/adodb-php)
+While the ADOdb/ADOdb github repo is effectively dormant, this fork provides ongoing maintenance releases to the ADOdb package. It is designed to be backwards compatible with the upstream package while adding compatibility with later versions of PHP. If the ADOdb repo re-activates, this repo may be archived.
 
 (c) 2000-2013 John Lim (jlim@natsoft.com)  
 (c) 2014      Damien Regad, Mark Newnham and the
               [ADOdb community](https://github.com/ADOdb/ADOdb/graphs/contributors)
 
 The ADOdb Library is dual-licensed, released under both the
-[BSD 3-Clause](https://github.com/ADOdb/ADOdb/blob/master/LICENSE.md#bsd-3-clause-license) 
+[BSD 3-Clause](https://github.com/mnewnham/ADOdb/blob/master/LICENSE.md#bsd-3-clause-license) 
 and the
-[GNU Lesser General Public Licence (LGPL) v2.1](https://github.com/ADOdb/ADOdb/blob/master/LICENSE.md#gnu-lesser-general-public-license)
+[GNU Lesser General Public Licence (LGPL) v2.1](https://github.com/mnewnham/ADOdb/blob/master/LICENSE.md#gnu-lesser-general-public-license)
 or, at your option, any later version. 
 This means you can use it in proprietary products;
-see [License](https://github.com/ADOdb/ADOdb/blob/master/LICENSE.md) for details.
+see [License](https://github.com/mnewnham/ADOdb/blob/master/LICENSE.md) for details.
 
 Home page: https://adodb.org/
 
@@ -28,9 +25,8 @@ need for a database class library to hide the differences between the
 different databases (encapsulate the differences) so we can easily
 switch databases.
 
-The library currently supports MySQL, Firebird & Interbase, PostgreSQL, SQLite3, Oracle,
-Microsoft SQL Server, Foxpro ODBC, Access ODBC, Informix, DB2, Sybase,
-Sybase SQL Anywhere, generic ODBC and Microsoft's ADO.
+The library currently supports MySQL, Firebird, PostgreSQL, SQLite3, Oracle,
+Microsoft SQL Server,  DB2, PDO and generic ODBC
 
 We hope more people will contribute drivers to support other databases.
 
@@ -88,16 +84,7 @@ tables are created in test.php.
 Support
 =======
 
-To discuss with the ADOdb development team and users, connect to our
-[Gitter chatroom](https://gitter.im/adodb/adodb) using your Github credentials.
-
 Please report bugs, issues and feature requests on Github:
 
-https://github.com/ADOdb/ADOdb/issues
+https://github.com/mnewnham/ADOdb/issues
 
-You may also find legacy issues in
-
-- the [SourceForge tickets section](http://sourceforge.net/p/adodb/_list/tickets)
-
-However, please note that they are not actively monitored and should
-only be used as reference.
