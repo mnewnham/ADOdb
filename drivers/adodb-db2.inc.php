@@ -619,7 +619,9 @@ class ADODB_db2 extends ADOConnection {
     function OffsetDate($dayFraction,$date=false)
 	{
 		if (!$date) {
-			$date = $this->sysDate;
+            if ($dayFraction) {
+			    $date = $this->sysDate;
+            }
 		} else if (strncmp($date,"'",1) == 0) {
 			$len = strlen($date);
 			if (10 <= $len && $len <= 12) $date = 'DATE '.$date;
