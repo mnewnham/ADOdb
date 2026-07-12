@@ -39,7 +39,7 @@ import updateversion
 # ADOdb Repository reference
 origin_repo = "https://github.com/mnewnham/ADOdb.git"
 release_branch = "master"
-release_prefix = "adodb"
+release_prefix = "adodb-upstream"
 
 # Directories and files to exclude from release tarballs
 # For consistency, this should match the list in .gitattributes
@@ -160,7 +160,7 @@ def main():
 
     # Default release branch
     if updateversion.version_is_patch(version):
-        release_branch = 'hotfix/' + version.rsplit('.', 1)[0]
+        release_branch = 'release/' + version.rsplit('.', 1)[0]
 
     # -------------------------------------------------------------------------
     # Start the build
