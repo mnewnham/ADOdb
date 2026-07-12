@@ -1,20 +1,12 @@
 {
-	"name" : "adodb/adodb-php",
+	"name" : "mnewnham/adodb-php",
 	"description" : "ADOdb is a PHP database abstraction layer library",
 	"license" : [ "BSD-3-Clause", "LGPL-2.1-or-later" ],
 	"authors" : [
 		{
-			"name": "John Lim",
-			"email" : "jlim@natsoft.com",
-			"role": "Author"
-		},
-		{
-			"name": "Damien Regad",
-			"role": "Current maintainer"
-		},
-		{
 			"name": "Mark Newnham",
-			"role": "Developer"
+			"role": "Current Maintainer",
+			"email": "mark@newnhams.com"
 		}
 	],
 
@@ -22,12 +14,12 @@
 
 	"homepage": "https://adodb.org/",
 	"support" : {
-		"issues" : "https://github.com/ADOdb/ADOdb/issues",
-		"source" : "https://github.com/ADOdb/ADOdb"
+		"issues" : "https://github.com/mnewnham/ADOdb/issues",
+		"source" : "https://github.com/mnewnham/ADOdb"
 	},
 
 	"require" : {
-		"php" : "^7.4 || ^8.0"
+		"php" : "^8.3"
 	},
 
 	"require-dev" : {
