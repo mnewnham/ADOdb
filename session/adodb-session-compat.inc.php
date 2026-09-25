@@ -377,7 +377,7 @@ class ADODB_Session
         if (!isset($GLOBALS['ADODB_SESSION_OBJECT'])) {
             return false;
         }
-
+        print_r($GLOBALS['ADODB_SESSION_OBJECT']);
         return $GLOBALS['ADODB_SESSION_OBJECT']->config(
             $driver,
             $host,

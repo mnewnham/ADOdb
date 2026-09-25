@@ -74,7 +74,7 @@ SELECT LOWER(USERNAME) FROM ALL_USERS
 ,'DBSFWUSER','DGPDB_INT','DIP','DVF','GGSHAREDCAP','GGSYS','GSMCATUSER'
 ,'GSMUSER','MDDATA','OLAPSYS','PDBADMIN','REMOTE_SCHEDULER_AGENT','SYS\$UMF','SYSBACKUP'
 ,'SYSDG','SYSKM','SYSRAC','VECSYS') ORDER BY 1";
-	var $_stmt;
+	protected mixed $_stmt;
 	var $_commit = OCI_COMMIT_ON_SUCCESS;
 	var $_initdate = true; // init date to YYYY-MM-DD
 	var $metaTablesSQL = <<<ENDSQL
@@ -120,7 +120,14 @@ END;
 	var $NLS_DATE_FORMAT = 'YYYY-MM-DD';  // To include time, use 'RRRR-MM-DD HH24:MI:SS'
 	var $dateformat = 'YYYY-MM-DD'; // DBDate format
 	var $useDBDateFormatForTextInput=false;
-	var $datetime = false; // MetaType('DATE') returns 'D' (datetime==false) or 'T' (datetime == true)
+	
+	/**
+	 * MetaType('DATE') returns 'D' (datetime==false) or 'T' (datetime == true)
+	 *
+	 * @var boolean
+	 */
+	public bool $datetime = false; 
+
 	var $_refLOBs = array();
 
 	/*
@@ -138,9 +145,17 @@ END;
 	 */
 	public $seqPrefix = 'SEQ_';
 
-	/*  function MetaColumns($table, $normalize=true) added by smondino@users.sourceforge.net*/
-	function MetaColumns($table, $normalize=true)
-	{
+	/**
+	 * List columns in a database as an array of ADOFieldObjects.
+	 * See top of file for definition of object.
+	 *
+	 * @param string $table	    table name to query
+	 * @param bool   $normalize	makes table name case-insensitive (required by some databases)
+	 *
+	 * @return array|false of ADOFieldObjects for current table.
+	 */
+	public function metaColumns(string $table, bool $normalize=true) : mixed {
+
 	global $ADODB_FETCH_MODE;
 
 		$schema = '';
@@ -202,9 +217,14 @@ END;
 		return $retarr;
 	}
 
-	function Time()
-	{
-		$rs = $this->Execute("select TO_CHAR($this->sysTimeStamp,'YYYY-MM-DD HH24:MI:SS') from dual");
+	/**
+	 * Return the database server's current date and time.
+	 *
+	 * @return int|false
+	 */
+	public function time() : mixed {
+
+		$rs = $this->Execute("SELECT TO_CHAR($this->sysTimeStamp,'YYYY-MM-DD HH24:MI:SS') from dual");
 		if ($rs && !$rs->EOF) {
 			return $this->UnixTimeStamp(reset($rs->fields));
 		}
@@ -250,12 +270,26 @@ END;
 	 *
 	 * @return bool
 	 */
-	function _connect($argHostname, $argUsername, $argPassword, $argDatabasename=null, $mode=0)
-	{
+	protected function _connect(
+		?string $argHostname = null, 
+		?string $argUsername = null, 
+		?string $argPassword = null, 
+		?string $argDatabaseName = null,
+		bool   $persist = false
+		) : bool {
+
 		if (!function_exists('oci_pconnect')) {
-			return null;
+			return false;
 		}
 		#adodb_backtrace();
+
+		if ($this->forceNewConnect) {
+			$mode = 2;
+		} else if ($persist) {
+			$mode = 1;
+		} else {
+			$mode = 0;
+		}
 
 		$this->_errorMsg = false;
 		$this->_errorCode = false;
@@ -334,40 +368,60 @@ END;
 		return true;
 	}
 
-	function ServerInfo()
-	{
-		$arr['compat'] = $this->GetOne('select value from sys.database_compatible_level');
+	/**
+	 * Get server version info.
+	 *
+	 * @return array Array with 2 string elements: version and description
+	 */
+	public function ServerInfo() : array {
+
+		$sql = 'SELECT value FROM sys.database_compatible_level';
+
+		$arr['compat'] = $this->GetOne($sql);
 		$arr['description'] = @oci_server_version($this->_connectionID);
 		$arr['version'] = ADOConnection::_findvers($arr['description']);
 		return $arr;
 	}
-		// returns true or false
-	function _pconnect($argHostname, $argUsername, $argPassword, $argDatabasename)
-	{
-		return $this->_connect($argHostname, $argUsername, $argPassword, $argDatabasename,1);
-	}
 
-	// returns true or false
-	function _nconnect($argHostname, $argUsername, $argPassword, $argDatabasename)
-	{
-		return $this->_connect($argHostname, $argUsername, $argPassword, $argDatabasename,2);
-	}
+	/**
+	 * Returns how many rows were effected by the most recently executed SQL statement.
+	 * Only works for INSERT, UPDATE and DELETE queries.
+	 *
+	 * @return int|bool The number of rows affected or false if not relevant.
+	 */
+	protected function _affectedrows() : mixed {
 
-	function _affectedrows()
-	{
 		if (is_resource($this->_stmt)) {
 			return @oci_num_rows($this->_stmt);
 		}
-		return 0;
+		return false;
 	}
 
-	function IfNull( $field, $ifNull )
-	{
+	/**
+	 * Return string with a database specific IFNULL statement
+	 *
+	 * @param string $field  The field to evaluate
+	 * @param string $ifNull The substitute
+	 *
+	 * @return string
+	 */
+	public function ifNull( string $field, mixed $ifNull ) : string {
 		return " NVL($field, $ifNull) "; // if Oracle
 	}
 
-	protected function _insertID($table = '', $column = '')
-	{
+	/**
+	 * Return the id of the last row that has been inserted in a table.
+	 *
+	 * @param string $table  The optional table if required
+	 * @param string $column The optional column if available
+	 *
+	 * @return int|false
+	 */
+	protected function _insertID(
+		string $table = '', 
+		string $column = ''
+	) : mixed {
+
 		if ($this->schema)
 		{
 			$t = strpos($table,'.');
@@ -398,9 +452,16 @@ END;
 		return $this->getOne("SELECT $seqname.currval FROM dual");
 	}
 
-	// format and return date string in database date format
-	function DBDate($d,$isfld=false)
-	{
+	/**
+	 * Converts a date "d" to a string that the database can understand.
+	 *
+	 * @param string  $d     a date in Unix date time format.
+	 * @param bool    $isfld Is $d a database field reference
+	 *
+	 * @return string date string in database date format
+	 */
+	public function dbDate(string $d, $isfld=false) {
+
 		if (empty($d) && $d !== 0) {
 			return 'null';
 		}
@@ -424,8 +485,15 @@ END;
 		return "TO_DATE(".$ds.",'".$this->dateformat."')";
 	}
 
-	function BindDate($d)
-	{
+	/**
+	 * Returns an unquoted date suitable for use in a parameterized query
+	 *
+	 * @param string $d The date string
+	 * 
+	 * @return string  The DB parameter
+	 */
+	public function bindDate(string $d) : string {
+
 		$d = ADOConnection::DBDate($d);
 		if (strncmp($d, "'", 1)) {
 			return $d;
@@ -434,8 +502,15 @@ END;
 		return substr($d, 1, strlen($d)-2);
 	}
 
-	function BindTimeStamp($ts)
-	{
+	/**
+	 * Returns an unquoted timestamp suitable for use in a parameterized query
+	 *
+	 * @param string $ts The timetamp string
+	 * 
+	 * @return string  The DB parameter
+	 */
+	public function bindTimeStamp(string $ts) : string {
+	
 		if (empty($ts) && $ts !== 0) {
 			return 'null';
 		}
@@ -476,16 +551,47 @@ END;
 		return 'TO_DATE('.$tss.",'RRRR-MM-DD, HH24:MI:SS')";
 	}
 
-	function RowLock($tables,$where,$col='1 as adodbignore')
-	{
+	/**
+	 * Lock a row.
+	 * Will escalate and lock the table if row locking is not supported.
+	 * Will normally free the lock at the end of the transaction.
+	 *
+	 * @param string $table name of table to lock
+	 * @param string $where where clause to use, eg: "WHERE row=12". If left empty, will escalate to table lock
+	 * @param string $col   The column to use as lock
+	 *
+	 * @return bool
+	 */
+	public function rowLock(
+		string $table, 
+		string $where, 
+		string $col='1 as adodbignore'
+		) : bool {
 		if ($this->autoCommit) {
 			$this->BeginTrans();
 		}
-		return $this->GetOne("select $col from $tables where $where for update");
+		return $this->GetOne("SELECT $col FROM $table WHERE $where FOR UPDATE");
 	}
 
-	function MetaTables($ttype=false,$showSchema=false,$mask=false)
-	{
+	/**
+	 * Returns an array of table names and/or views in the database.
+	 *
+	 * @param string|bool $ttype Can be either `TABLE`, `VIEW`, or false.
+	 *   - If false, both views and tables are returned.
+	 *   - `TABLE` (or `T`) returns only tables
+	 *   - `VIEW` (or `V` returns only views
+	 * @param string|bool $showSchema Prepends the schema/user to the table name,
+	 *                                eg. USER.TABLE
+	 * @param string|bool $mask Input mask - not supported by all drivers
+	 *
+	 * @return array|false Tables/Views for current database.
+	 */
+	public function metaTables(
+		mixed $ttype=false, 
+		mixed $showSchema=false, 
+		mixed $mask=false
+	) : mixed {
+
 		if ($mask) {
 			$save = $this->metaTablesSQL;
 			$mask = $this->qstr(strtoupper($mask));
@@ -504,20 +610,20 @@ END;
 	}
 
 	/**
-      * Return a list of indexes for a specified table
-      *
-      * We don't use db2_statistics as the function does not seem to play
-      * well with mixed case table names
-      *
-      * @param string   $table
-      * @param bool     $primary    (optional) return primary key
-      * @param bool     $owner      (optional) not used in this driver
-      *
-      * @return string[]    Array of indexes
-      */
-
-	function MetaIndexes ($table, $primary = FALSE, $owner=false)
-	{
+	 * List indexes on a table as an array.
+	 * 
+	 * @param string $table   table name to query
+	 * @param bool   $primary true include primary keys in the list
+	 * @param string $owner   The schena owner if supported
+	 * 
+	 * @return array|bool indexes on current table. Each element represents an index, and is itself an associative array.
+	 */
+	public function metaIndexes(
+		string $table, 
+		bool $primary = false, 
+		mixed $owner = false
+	) : mixed {
+		
 		// save old fetch mode
 		global $ADODB_FETCH_MODE;
 
@@ -590,8 +696,15 @@ END;
 		return $indexes;
 	}
 
-	function BeginTrans()
-	{
+	
+	/**
+	 * Begin a Transaction.
+	 *
+	 * Must be followed by CommitTrans() or RollbackTrans().
+	 *
+	 * @return bool true if succeeded or false if database does not support transactions
+	 */
+	public function beginTrans() : bool {
 		if ($this->transOff) {
 			return true;
 		}
@@ -609,8 +722,18 @@ END;
 		return (bool)$ok;
 	}
 
-	function CommitTrans($ok=true)
-	{
+	/**
+	 * Commits a transaction.
+	 *
+	 * If database does not support transactions, return true as data is
+	 * always committed.
+	 *
+	 * @param bool $ok True to commit, false to rollback the transaction.
+	 *
+	 * @return bool true if successful
+	 */
+	public function commitTrans(bool $ok=true) : bool {
+
 		if ($this->transOff) {
 			return true;
 		}
@@ -627,8 +750,15 @@ END;
 		return $ret;
 	}
 
-	function RollbackTrans()
-	{
+	/**
+	 * Rolls back a transaction.
+	 *
+	 * If database does not support transactions, return false as rollbacks
+	 * always fail.
+	 *
+	 * @return bool true if successful
+	 */
+	public function rollbackTrans() : bool {
 		if ($this->transOff) {
 			return true;
 		}
@@ -641,14 +771,13 @@ END;
 		return $ret;
 	}
 
+	/**
+	 * Returns the last error message
+	 * 
+	 * @return string
+	 */
+	public function ErrorMsg() : string {
 
-	function SelectDB($dbName)
-	{
-		return false;
-	}
-
-	function ErrorMsg()
-	{
 		if ($this->_errorMsg !== false) {
 			return $this->_errorMsg;
 		}
@@ -672,8 +801,13 @@ END;
 		return $this->_errorMsg;
 	}
 
-	function ErrorNo()
-	{
+	/**
+	 * the last error number. Normally 0 means no error
+	 * 
+	 * @return int
+	 */
+	public function errorNo() : int {
+
 		if ($this->_errorCode !== false) {
 			return $this->_errorCode;
 		}
@@ -707,8 +841,8 @@ END;
 	 *
 	 * @return string
 	 */
-	function OffsetDate($dayFraction, $date = false)
-	{
+	public function OffsetDate(float $dayFraction, mixed $date=false) : string {
+
 		if (!$date) {
 			$date = $this->sysDate;
 		}
@@ -723,11 +857,19 @@ END;
 	}
 
 
-	/**
-	 * Format date column in sql string given an input format that understands Y M D
+/**
+	 * Format date column in sql string.
+	 *
+	 * See https://adodb.org/dokuwiki/doku.php?id=v5:reference:connection:sqldate
+	 * for documentation on supported formats.
+	 *
+	 * @param string $fmt Format string
+	 * @param string $col Date column; use system date if not specified.
+	 *
+	 * @return string
 	 */
-	function SQLDate($fmt, $col=false)
-	{
+	public function sqlDate(string $fmt, string $col = '') : string	{
+
 		if (!$col) {
 			$col = $this->sysTimeStamp;
 		}
@@ -809,8 +951,15 @@ END;
 		return $s. "')";
 	}
 
-	function GetRandRow($sql, $arr = false)
-	{
+	/**
+	 * Returns a random row from a recordset
+	 *
+	 * @param string $sql The SQL to generate the list
+	 * @param mixed  $arr The optional bind
+	 * 
+	 * @return mixed
+	 */
+	public function GetRandRow(string $sql, mixed $arr = false) : mixed  {
 		$sql = "SELECT * FROM ($sql ORDER BY dbms_random.value) WHERE rownum = 1";
 
 		return $this->GetRow($sql,$arr);
@@ -834,9 +983,23 @@ END;
 	 *
 	 * Note: FIRST_ROWS hinting is only used if $sql is a string; when
 	 * processing a prepared statement's handle, no hinting is performed.
+	 *
+	 * @param string     $sql
+	 * @param int        $offset     Row to start calculations from (1-based)
+	 * @param int        $nrows      Number of rows to get
+	 * @param array|bool $inputarr   Array of bind variables
+	 * @param int        $secs2cache Private parameter only used by jlim
+	 *
+	 * @return ADORecordSet The recordset ($rs->databaseType == 'array')
 	 */
-	function SelectLimit($sql,$nrows=-1,$offset=-1, $inputarr=false,$secs2cache=0)
-	{
+	public function selectLimit(
+		string $sql,
+		int $nrows=-1,
+		int $offset=-1, 
+		mixed $inputarr=false,
+		int $secs2cache=0
+	) : mixed {
+
 		$nrows = (int) $nrows;
 		$offset = (int) $offset;
 		// Since the methods used to limit the number of returned rows rely
@@ -979,9 +1142,22 @@ END;
 	 * under oracle 8.1.7.0. Run:
 	 *    $db->Execute('ALTER SESSION SET CURSOR_SHARING=EXACT');
 	 * before UpdateBlob() then...
+	 * 
+	 * @param string $table    Table name
+	 * @param string $column   Column name
+	 * @param string $val      String containing blob data
+	 * @param mixed  $where    {@see updateBlob()}
+	 * @param string $blobtype supports 'BLOB' (default) and 'CLOB'
+	 *
+	 * @return bool success
 	 */
-	function UpdateBlob($table,$column,$val,$where,$blobtype='BLOB')
-	{
+	public function updateBlob(
+		string $table, 
+		string $column, 
+		string $val, 
+		mixed $where, 
+		string $blobtype='BLOB'
+	) : mixed {
 
 		//if (strlen($val) < 4000) return $this->Execute("UPDATE $table SET $column=:blob WHERE $where",array('blob'=>$val)) != false;
 
@@ -1025,9 +1201,22 @@ END;
 
 	/**
 	 * Usage:  store file pointed to by $val in a blob
+	 * 
+	 * @param string $table    Table name
+	 * @param string $column   Column name
+	 * @param string $path     Filename containing blob data
+	 * @param mixed  $where    {@see updateBlob()}
+	 * @param string $blobtype supports 'BLOB' and 'CLOB'
+	 *
+	 * @return bool success
 	 */
-	function UpdateBlobFile($table,$column,$val,$where,$blobtype='BLOB')
-	{
+	public function updateBlobFile(
+		string $table, 
+		string $column, 
+		string $path,
+		string $where, 
+		string $blobtype='BLOB'
+	) : mixed {
 		switch(strtoupper($blobtype)) {
 		default: ADOConnection::outp( "<b>UpdateBlob</b>: Unknown blobtype=$blobtype"); return false;
 		case 'BLOB': $type = OCI_B_BLOB; break;
@@ -1035,9 +1224,9 @@ END;
 		}
 
 		if ($this->databaseType == 'oci8po')
-			$sql = "UPDATE $table set $column=EMPTY_{$blobtype}() WHERE $where RETURNING $column INTO ?";
+			$sql = "UPDATE $table SET $column=EMPTY_{$blobtype}() WHERE $where RETURNING $column INTO ?";
 		else
-			$sql = "UPDATE $table set $column=EMPTY_{$blobtype}() WHERE $where RETURNING $column INTO :blob";
+			$sql = "UPDATE $table SET $column=EMPTY_{$blobtype}() WHERE $where RETURNING $column INTO :blob";
 
 		$desc = oci_new_descriptor($this->_connectionID, OCI_D_LOB);
 		$arr['blob'] = array($desc,-1,$type);
@@ -1045,7 +1234,7 @@ END;
 		$this->BeginTrans();
 		$rs = ADODB_oci8::Execute($sql,$arr);
 		if ($rez = !empty($rs)) {
-			$desc->savefile($val);
+			$desc->savefile($path);
 		}
 		$desc->free();
 		$this->CommitTrans();
@@ -1056,8 +1245,18 @@ END;
 		return $rez;
 	}
 
-	function Execute($sql,$inputarr=false)
-	{
+	/**
+	 * Execute SQL
+	 *
+	 * @param string     $sql      SQL statement to execute, or possibly an array
+	 *                             holding prepared statement ($sql[0] will hold sql text)
+	 * @param array|bool $inputarr holds the input data to bind to.
+	 *                             Null elements will be set to null.
+	 *
+	 * @return ADORecordSet|false
+	 */
+	public function execute(string $sql, mixed $inputarr = false) : mixed {
+
 		if ($this->fnExecute) {
 			$fn = $this->fnExecute;
 			$ret = $fn($this,$sql,$inputarr);
@@ -1141,12 +1340,25 @@ END;
 		return $ret;
 	}
 
-	/*
-	 * Example of usage:
-	 *    $stmt = $this->Prepare('insert into emp (empno, ename) values (:empno, :ename)');
-	*/
-	function Prepare($sql,$cursor=false)
-	{
+	/**
+	 * Prepare an SQL statement and return the statement resource.
+	 *
+	 * For databases that do not support prepared statements, we return the
+	 * provided SQL statement as-is, to ensure compatibility:
+	 *
+	 *   $stmt = $db->prepare("insert into table (id, name) values (?,?)");
+	 *   $db->execute($stmt, array(1,'Jill')) or die('insert failed');
+	 *   $db->execute($stmt, array(2,'Joe')) or die('insert failed');
+	 *
+	 * @param string $sql    SQL to send to database
+	 * @param mixed  $cursor Used by DBMS that can provide cursors e.g. oci8
+	 *
+	 * @return resource|string|false The prepared statement, a pointer to it 
+	 *                               or the original sql if the
+	 *                                database does not support prepare.
+	 */
+	public function prepare(string $sql, mixed $cursor=false) : mixed  { 
+
 	static $BINDNUM = 0;
 
 		$stmt = oci_parse($this->_connectionID,$sql);
@@ -1173,8 +1385,15 @@ END;
 		return array($sql,$stmt,0,$BINDNUM);
 	}
 
-	function releaseStatement(&$stmt)
-	{
+	/**
+	 * Releases a prepared statement
+	 *
+	 * @param mixed $stmt An array holding statement data
+	 * 
+	 * @return bool
+	 */
+	public function releaseStatement(mixed &$stmt) : bool	{
+
 		if (is_array($stmt)
 			&& isset($stmt[1])
 			&& is_resource($stmt[1])
@@ -1189,21 +1408,25 @@ END;
 		return false;
 	}
 
-	/*
-		Call an oracle stored procedure and returns a cursor variable as a recordset.
-		Concept by Robert Tuttle robert@ud.com
-
-		Example:
-			Note: we return a cursor variable in :RS2
-			$rs = $db->ExecuteCursor("BEGIN adodb.open_tab(:RS2); END;",'RS2');
-
-			$rs = $db->ExecuteCursor(
-				"BEGIN :RS2 = adodb.getdata(:VAR1); END;",
-				'RS2',
-				array('VAR1' => 'Mr Bean'));
-
-	*/
-	function ExecuteCursor($sql,$cursorName='rs',$params=false)
+	/**
+	 *	Call an oracle stored procedure and returns a cursor variable as a recordset.
+	 *	Concept by Robert Tuttle robert@ud.com
+	 *
+	 * 	Example
+	 * 	Note: we return a cursor variable in :RS2
+	 *		$rs = $db->ExecuteCursor("BEGIN adodb.open_tab(:RS2); END;",'RS2');
+	 *		$rs = $db->ExecuteCursor(
+	 *		"BEGIN :RS2 = adodb.getdata(:VAR1); END;",
+	 *		'RS2',
+	 * 		array('VAR1' => 'Mr Bean'));	
+	 *
+	 * @param mixed $sql
+	 * @param string $cursorName
+	 * @param mixed $params
+	 * 
+	 * @return mixed
+	 */
+	public function ExecuteCursor(mixed $sql, string $cursorName='rs',mixed $params=false) : mixed 
 	{
 		if (is_array($sql)) {
 			$stmt = $sql;
@@ -1263,9 +1486,22 @@ END;
 	 *
 	 * Note that the order of parameters differs from oci_bind_by_name,
 	 * because we default the names to :0, :1, :2
+ 	 *
+	 * @param mixed $stmt
+	 * @param string $var
+	 * @param integer $size
+	 * @param mixed $type
+	 * @param mixed $name
+	 * @param boolean $isOutput
+	 * @return mixed
 	 */
-	function Bind(&$stmt,&$var,$size=4000,$type=false,$name=false,$isOutput=false)
-	{
+	public function bind(
+		mixed &$stmt,
+		string &$var,
+		int $size=4000,
+		mixed $type=false,
+		mixed $name=false,
+		bool $isOutput=false) : mixed {
 
 		if (!is_array($stmt)) {
 			return false;
@@ -1325,8 +1561,27 @@ END;
 		return $rez;
 	}
 
-	function Param($name,$type='C')
-	{
+	/**
+	 * Returns a placeholder for query parameters.
+	 * 
+	 * For databases that require positioned params (e.g. PostgreSQL),
+	 * a "falsy" value can be used to force resetting the placeholder
+	 * count; using boolean 'false' will reset it without actually
+	 * returning a placeholder. ADOdb will also automatically reset
+	 * the count when executing a query.
+	 *
+	 * e.g. $DB->Param('a') will return
+	 * - '?' for most databases
+	 * - ':a' for Oracle
+	 * - '$1', '$2', etc. for PostgreSQL
+	 *
+	 * @param mixed $name parameter's name.
+
+	 * @param string $type (unused)
+	 * 
+	 * @return string query parameter placeholder
+	 */
+	public function param(mixed $name,string $type='C') : string {
 		return ':'.$name;
 	}
 
@@ -1337,23 +1592,32 @@ END;
 	 *    $db->Parameter($stmt,$group,'group');
 	 *    $db->Execute($stmt);
 	 *
-	 * @param array $stmt Statement returned by {@see Prepare()} or {@see PrepareSP()}.
-	 * @param mixed $var PHP variable to bind to
-	 * @param string $name Name of stored procedure variable name to bind to.
-	 * @param bool $isOutput Indicates direction of parameter 0/false=IN  1=OUT  2= IN/OUT. This is ignored in oci8.
-	 * @param int $maxLen Holds an maximum length of the variable.
-	 * @param mixed $type The data type of $var. Legal values depend on driver.
 	 *
-	 * @link http://php.net/oci_bind_by_name
-	*/
-	function Parameter(&$stmt,&$var,$name,$isOutput=false,$maxLen=4000,$type=false)
-	{
-			if  ($this->debug) {
-				$prefix = ($isOutput) ? 'Out' : 'In';
-				$ztype = (empty($type)) ? 'false' : $type;
-				ADOConnection::outp( "{$prefix}Parameter(\$stmt, \$php_var='$var', \$name='$name', \$maxLen=$maxLen, \$type=$ztype);");
-			}
-			return $this->Bind($stmt,$var,$maxLen,$type,$name,$isOutput);
+	 * @param mixed    &$stmt Statement returned by Prepare() or PrepareSP().
+	 * @param string   &$var PHP variable to bind to
+	 * @param string   $name Name of stored procedure variable name to bind to.
+	 * @param int|bool $isOutput Indicates direction of parameter 0/false=IN  1=OUT  2= IN/OUT. This is ignored in oci8.
+	 * @param int      $maxLen Holds an maximum length of the variable.
+	 * @param mixed    $type The data type of $var. Legal values depend on driver.
+	 *
+	 * @return bool
+	 */
+	public function parameter(
+		mixed &$stmt,
+		string &$var,
+		string $name,
+		bool $isOutput=false,
+		int $maxLen=4000,
+		mixed $type=false
+	) : bool {
+		
+		if  ($this->debug) {
+			$prefix = ($isOutput) ? 'Out' : 'In';
+			$ztype = (empty($type)) ? 'false' : $type;
+			ADOConnection::outp( "{$prefix}Parameter(\$stmt, \$php_var='$var', \$name='$name', \$maxLen=$maxLen, \$type=$ztype);");
+		}
+
+		return $this->Bind($stmt,$var,$maxLen,$type,$name,$isOutput);
 	}
 
 	/**
@@ -1372,13 +1636,13 @@ END;
 	 *    $db->bind($stmt,1); $db->bind($stmt,2); $db->bind($stmt,3);
 	 *    $db->execute($stmt);
 	 *
-	 * @param string|array $sql        Query to execute.
-	 * @param array        $inputarr   An optional array of parameters.
+	 * @param string $sql        Query to execute.
+	 * @param int    $inputarr   An optional array of parameters.
 	 *
 	 * @return mixed|bool Query identifier or true if execution successful, false if failed.
 	 */
-	function _query($sql,$inputarr=false)
-	{
+	public function _query(string $sql, mixed $inputarr = false) : mixed {
+
 		if (is_array($sql)) { // is prepared sql
 			$stmt = $sql[1];
 
@@ -1524,13 +1788,16 @@ END;
 		return false;
 	}
 
-	// returns true or false
-	function _close()
-	{
-		if (!$this->_connectionID) {
-			return;
-		}
+	/**
+	 * Internal close connection
+	 *
+	 * @return bool
+	 */
+	protected function _close() : bool {
 
+		if (!$this->_connectionID) {
+			return false;
+		}
 
 		if (!$this->autoCommit) {
 			oci_rollback($this->_connectionID);
@@ -1545,16 +1812,26 @@ END;
 
 		$this->_stmt = false;
 		$this->_connectionID = false;
+		return true;
 	}
 
-	function MetaPrimaryKeys($table, $owner=false,$internalKey=false)
-	{
-		if ($internalKey) {
-			return array('ROWID');
-		}
+	/**
+	 * returns an array with the primary key columns in it.
+	 * 
+	 * @param string $table The table to query for primary keys
+	 * @param string $owner The optionanl schema owner
+	 * 
+	 * @return false|array
+	 */
+	public function MetaPrimaryKeys(string $table, mixed $owner=false) : mixed {
+
+		//if ($internalKey) {
+		//	return array('ROWID');
+		//}
 
 		// tested with oracle 8.1.7
 		$table = strtoupper($table);
+		
 		if ($owner) {
 			$owner_clause = "AND ((a.OWNER = b.OWNER) AND (a.OWNER = UPPER('$owner')))";
 			$ptab = 'ALL_';
@@ -1584,18 +1861,22 @@ SELECT /*+ RULE */ distinct b.column_name
 	}
 
 	/**
-	 * Returns a list of Foreign Keys associated with a specific table.
+	 * Return information about a table's foreign keys.
 	 *
-	 * @param string $table	      Name of the table
-	 * @param string $owner		  Owner of the table
-	 * @param bool   $upper       Return keys in uppercase (true)
-	 * @param bool   $associative Force associative mode
+	 * @param string $table The name of the table to get the foreign keys for.
+	 * @param string|bool $owner (Optional) The database the table belongs to, or false to assume the current db.
+	 * @param string|bool $upper (Optional) Force uppercase table name on returned array keys.
+	 * @param bool $associative (Optional) Whether to return an associate or numeric array.
 	 *
-	 * @return string[]|false An array where keys are tables, and values are foreign keys;
-	 *                     false if no foreign keys could be found.
+	 * @return array|bool An array of foreign keys, or false no foreign keys could be found.
 	 */
-	public function metaForeignKeys($table, $owner = '', $upper = false, $associative = false)
-	{
+	public function metaForeignKeys(
+		string $table, 
+		mixed $owner = '', 
+		mixed $upper = false, 
+		bool $associative = false
+	) : mixed {
+
 		global $ADODB_FETCH_MODE;
 		
 		$tableName = $this->metaTables('T', $owner, $table);
@@ -1707,13 +1988,23 @@ SELECT /*+ RULE */ distinct b.column_name
 	}
 
 
-	function CharMax()
-	{
+	/**
+	 * Returns the maximum size of a MetaType C field. If the method
+	 * is not defined in the driver returns ADODB_STRINGMAX_NOTSET
+	 *
+	 * @return int
+	 */
+	public function charMax() : int {
 		return 4000;
 	}
 
-	function TextMax()
-	{
+	/**
+	 * Returns the maximum size of a MetaType X field. If the method
+	 * is not defined in the driver returns ADODB_STRINGMAX_NOTSET
+	 *
+	 * @return int
+	 */
+	public function textMax() : int {
 		return 4000;
 	}
 
@@ -1728,8 +2019,8 @@ SELECT /*+ RULE */ distinct b.column_name
 	 *
 	 * @return string Quoted string to be sent back to database
 	 */
-	function qStr($s, $magic_quotes=false)
-	{
+	public function qStr(?string $s) : string {
+
 		if (strlen((string)$s) == 0) {
 			return $this->noNullStrings ? "' '" : "''";
 		}
@@ -1781,8 +2072,12 @@ class ADORecordset_oci8 extends ADORecordSet {
 	*/
 	function __destruct() {}
 
-	function Init()
-	{
+	/**
+	 * Initializes the recordset
+	 *
+	 * @return void
+	 */
+	public function init() : void {
 		if ($this->_inited) {
 			return;
 		}
@@ -1818,8 +2113,13 @@ class ADORecordset_oci8 extends ADORecordSet {
 		}
 	}
 
-	function _initrs()
-	{
+	/**
+	 * Internal Recordset initialization stub
+	 * 
+	 * @return void
+	 */
+	protected function _initrs() : void {
+
 		$this->_numOfRows = -1;
 		$this->_numOfFields = oci_num_fields($this->_queryID);
 		if ($this->_numOfFields>0) {
@@ -1867,15 +2167,28 @@ class ADORecordset_oci8 extends ADORecordSet {
 		return $fld;
 	}
 
-	/* For some reason, oci_field_name fails when called after _initrs() so we cache it */
-	function FetchField($fieldOffset = -1)
-	{
+	/**
+	 * Get a Field's metadata from database.
+	 *
+	 * Must be defined by child class.
+	 *
+	 * @param int $fieldOffset Optional field offset
+	 *
+	 * @return ADOFieldObject|false
+	 */
+	public function fetchField(int $fieldOffset=-1) : mixed	{
+	
 		return $this->_fieldobjs[$fieldOffset];
 	}
 
 
-	function MoveNext()
-	{
+	/**
+	 * Move to next record in the recordset.
+	 *
+	 * @return bool true if there still rows available, or false if there are no more rows (EOF).
+	 */
+	public function moveNext() : bool {
+
 		if ($this->fields = @oci_fetch_array($this->_queryID,$this->fetchMode)) {
 			$this->_currentRow += 1;
 			$this->_updatefields();
@@ -1888,9 +2201,18 @@ class ADORecordset_oci8 extends ADORecordSet {
 		return false;
 	}
 
-	// Optimize SelectLimit() by using oci_fetch()
-	function GetArrayLimit($nrows,$offset=-1)
-	{
+	/**
+	 * Return recordset as a 2-dimensional array.
+	 *
+	 * Helper function for ADOConnection->SelectLimit()
+	 *
+	 * @param int $nrows  Number of rows to return
+	 * @param int $offset Starting row (1-based)
+	 *
+	 * @return array an array indexed by the rows (0-based) from the recordset
+	 */
+	public function getArrayLimit(int $nrows, int $offset=-1) : mixed {
+
 		if ($offset <= 0) {
 			$arr = $this->GetArray($nrows);
 			return $arr;
@@ -1917,9 +2239,16 @@ class ADORecordset_oci8 extends ADORecordSet {
 	}
 
 
-	// Use associative array to get fields array
-	function Fields($colname)
-	{
+	/**
+	 * Get the value of a field in the current row by column name.
+	 * Will not work if ADODB_FETCH_MODE is set to ADODB_FETCH_NUM.
+	 *
+	 * @param string $colname is the field to access
+	 *
+	 * @return mixed the value of $colname column
+	 */
+	public function fields(string $colname) : mixed {
+
 		if (!$this->bind) {
 			$this->bind = array();
 			for ($i=0; $i < $this->_numOfFields; $i++) {
@@ -1932,17 +2261,27 @@ class ADORecordset_oci8 extends ADORecordSet {
 	}
 
 
-	function _seek($row)
-	{
+	/**
+	 * Adjusts the result pointer to an arbitrary row in the result.
+	 *
+	 * @param int $row The row to seek to.
+	 *
+	 * @return bool False if the recordset contains no rows, otherwise true.
+	 */
+	protected function _seek(int $row) : bool {
 		return false;
 	}
 
-	function _fetch()
-	{
+	/**
+	 * Row fetch into _fields stub
+	 * 
+	 * @return bool Success
+	 */
+	protected function _fetch() : bool { 
 		$this->fields = @oci_fetch_array($this->_queryID,$this->fetchMode);
 		$this->_updatefields();
 
-		return $this->fields;
+		return true;
 	}
 
 	/**
@@ -1950,8 +2289,8 @@ class ADORecordset_oci8 extends ADORecordSet {
 	 * memory while your script is running. All associated result memory for the
 	 * specified result identifier will automatically be freed.
 	 */
-	function _close()
-	{
+	protected function _close() : bool {
+
 		if ($this->connection->_stmt === $this->_queryID) {
 			$this->connection->_stmt = false;
 		}
@@ -1962,19 +2301,24 @@ class ADORecordset_oci8 extends ADORecordSet {
 		if (is_resource($this->_queryID))
 		   @oci_free_statement($this->_queryID);
 		$this->_queryID = false;
+		return true;
 	}
 
 	/**
-	 * not the fastest implementation - quick and dirty - jlim
-	 * for best performance, use the actual $rs->MetaType().
+	 * Return the meta type
 	 *
-	 * @param	mixed	$t
-	 * @param	int		$len		[optional] Length of blobsize
-	 * @param	bool	$fieldobj	[optional][discarded]
-	 * @return	string				The metatype of the field
+	 * @param object $t       A field object
+	 * @param integer $len    Obsolete
+	 * @param mixed $fieldobj Obsolete
+	 * 
+	 * @return string
 	 */
-	function MetaType($t, $len=-1, $fieldobj=false)
-	{
+	public function metaType(
+		object $t, 
+		int $len=-1, 
+		mixed $fieldobj=false
+	) : string {
+
 		if (is_object($t)) {
 			$fieldobj = $t;
 			$t = $fieldobj->type;
