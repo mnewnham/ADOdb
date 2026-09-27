@@ -1,6 +1,6 @@
 ADOdb Library for PHP
 ======================
-While the ADOdb/ADOdb github repo is effectively dormant, this fork provides ongoing maintenance releases to the ADOdb package. It is designed to be backwards compatible with the upstream package while adding compatibility with later versions of PHP. If the ADOdb repo re-activates, this repo may be archived.
+As the ADOdb/ADOdb github repo focuses on retaining compatibility with Mantis, this fork provides ongoing maintenance releases to the ADOdb package. It is designed to be backwards compatible with the upstream package while adding compatibility with later versions of PHP. If the ADOdb repo re-activates, this repo may be archived. This version has a minimum PHP level of 8.3
 
 (c) 2000-2013 John Lim (jlim@natsoft.com)  
 (c) 2014      Damien Regad, Mark Newnham and the
